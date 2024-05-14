@@ -15,6 +15,10 @@
             background-color: red;
         }
 
+        .editing-cell {
+            background-color: #ffcece;
+        }
+
         .remove-row-button {
             cursor: pointer;
             font-size: 14px;
@@ -94,6 +98,32 @@
         var userMenuButton = document.getElementById('user-menu-button');
         const table = document.getElementById('rolesTable');
         const tableBody = document.getElementById('rolesTableBody');
+        const tableRows = document.querySelectorAll('tbody tr');
+
+        tableBody.addEventListener('click', function(event) {
+            var target = event.target;
+            var editingRow = target.closest('tr');
+            var editingValueId = editingRow.getAttribute('data-role-id');
+
+            if (target.tagName.toLowerCase() === 'td') {
+                var currentContent = target.innerHTML.trim();
+
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.value = currentContent;
+                input.classList.add('style-input', 'editing-cell');
+
+                target.innerHTML = '';
+                target.appendChild(input);
+
+                input.focus();
+
+                input.addEventListener('blur', function() {
+                    editedRoleFunction(input.value, editingValueId);
+                    target.innerHTML = input.value;
+                });
+            }
+        });
 
         userMenuButton.addEventListener('click', function() {
           settingsDropdown.classList.toggle('hidden');
@@ -107,6 +137,35 @@
 
         const deleteRoles = document.getElementById('deleteRoles');
         deleteRoles.addEventListener('click', deleteRolesFunction);
+
+        function editedRoleFunction(editedRole, editedRowId) {
+            var updated_role = {
+                new_role_name: editedRole,
+                row_id: editedRowId
+            };
+            console.log('updated_role', updated_role);
+            fetch('/update_role_name', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(updated_role)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+            console.log('data', data);
+
+            })
+            .catch(error => {
+                console.error('There was a problem with the fetch operation:', error);
+            });
+        };
 
         function saveNewRoleFunction() {
             const newInputCells = document.querySelectorAll('.new-input-data input');

@@ -32,6 +32,7 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/user_management', [UserManagement::class, 'user_management']);
 Route::get('/user_management', [UserManagement::class, 'home_page'])->name('user_management');
 
-Route::get('/role_management', [RoleController::class, 'show'])->name('role_management');
+Route::get('/role_management', [RoleController::class, 'index'])->name('role_management');
 Route::post('/save_new_roles', [RoleController::class, 'create']);
 Route::post('/delete_selected_roles', [RoleController::class, 'delete']);
+Route::post('/update_role_name', [RoleController::class, 'update']);

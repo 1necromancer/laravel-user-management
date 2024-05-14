@@ -14,9 +14,10 @@ class RoleController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Role $role)
     {
-        //
+        $roles = Role::all();
+        return view('pages/role_management', ['roles' => $roles]);
     }
 
     /**
@@ -49,14 +50,13 @@ class RoleController extends Controller
      */
     public function show(Role $role)
     {
-        $roles = Role::all();
-        return view('pages/role_management', ['roles' => $roles]);
+        //
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Role $role)
+    public function edit()
     {
         //
     }
@@ -64,9 +64,20 @@ class RoleController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateRoleRequest $request, Role $role)
+    public function update(Request $request, Role $role)
     {
-        //
+        $editedRole = $request->input('new_role_name');
+        $editedRowId = $request->input('row_id');
+        $updatedRole = Role::find($editedRowId);
+
+        if (!$updatedRole) {
+            return response()->json(['message' => 'Role not found'], 404);
+        }
+
+        $updatedRole->name = $editedRole;
+        $updatedRole->save();
+
+        return response()->json(['message' => 'Role updated successfully'], 200);
     }
 
     /**
