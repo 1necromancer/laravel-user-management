@@ -3,6 +3,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Management</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .style-input {
+            padding:4px;
+            width: 100%;
+            height: 100%;
+            outline-style: none;
+        }
+
+        .new-input-data {
+            background-color: red;
+        }
+
+        .editing-cell {
+            background-color: #ffcece;
+        }
+
+        .remove-row-button {
+            cursor: pointer;
+            font-size: 14px;
+            padding-top: 10px;
+        }
+
+        .styled-td {
+            border: 1px solid #e2e8f0;
+        }
+    </style>
 </head>
 <body>
     <nav class="bg-gray-800">
@@ -34,14 +60,310 @@
         </div>
       </div>
     </nav>
+
+    <button id="addNewUser" class="border-1 rounded-md py-2 px-8 m-4 bg-blue-300 text-black hover:bg-blue-700 hover:text-white">
+      Add
+    </button>
+
+    <button id="saveNewUser" class="border-1 rounded-md py-2 px-8 my-2 bg-green-300 text-black hover:bg-green-700 hover:text-white">
+      Save
+    </button>
+
+    <button id="deleteUsers" class="border-1 rounded-md py-2 px-8 my-2 ml-4 bg-red-300 text-black hover:bg-red-700 hover:text-white">
+      Delete
+    </button>
+
+    <table id="usersTable" class="ml-4">
+        <thead class="bg-gray-50">
+            <tr>
+                <th scope="col" class="border w-60 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    User
+                </th>
+                <th scope="col" class="border w-60 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Email
+                </th>
+                <th scope="col" class="border w-60 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Role
+                </th>
+            </tr>
+        </thead>
+        <tbody id="usersTableBody" class="bg-white">
+            @foreach ($users as $user)
+            <tr data-user-id="{{ $user->id }}">
+                <td class="p-1 border" data-is-name="is-name">
+                    {{ $user->name }}
+                </td>
+                <td class="p-1 border" data-is-email="is-email">
+                    {{ $user->email }}
+                </td>
+                <td class="p-1 border" data-is-role="is-role">
+                    {{ $user->role_name }}
+                </td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
 </body>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         var settingsDropdown = document.getElementById('settingsDropdown');
         var userMenuButton = document.getElementById('user-menu-button');
+        const table = document.getElementById('usersTable');
+        const tableBody = document.getElementById('usersTableBody');
+        const tableRows = document.querySelectorAll('tbody tr');
 
-            userMenuButton.addEventListener('click', function() {
-              settingsDropdown.classList.toggle('hidden');
+        tableBody.addEventListener('click', function(event) {
+            var target = event.target;
+            if (target.tagName.toLowerCase() === 'select') {
+                return;
+            }
+            var editingRow = target.closest('tr');
+            var editingValueId = editingRow.getAttribute('data-user-id');
+            var currentContent = target.innerHTML.trim();
+            target.innerHTML = '';
+
+            if (target.tagName.toLowerCase() === 'td' && !target.hasAttribute('data-is-role')) {
+                updateInputElement(target, currentContent, editingValueId);
+            } else {
+                updateSelectElement(target, currentContent, editingValueId);
+            }
+        });
+
+        function updateInputElement(target, currentContent, editingValueId) {
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentContent;
+            input.classList.add('style-input', 'editing-cell');
+
+            target.appendChild(input);
+
+            input.focus();
+
+            input.addEventListener('blur', function() {
+                if (target.hasAttribute('data-is-name')) {
+                    editedInputElementFunction('name', input.value, editingValueId);
+                } else {
+                    editedInputElementFunction('email', input.value, editingValueId);
+                }
+                target.innerHTML = input.value;
             });
+        }
+
+        function updateSelectElement(target, currentContent, editingValueId) {
+        console.log('currentContent', currentContent);
+            var select = document.createElement('select');
+            select.classList.add('style-input', 'editing-cell');
+
+            allRolesFunction().then(roles => {
+                roles.forEach(function(role) {
+                    var option = document.createElement('option');
+                    option.value = role.name;
+                    option.text = role.name;
+                    option.dataset.role_id = role.id;
+                    select.add(option);
+
+                    if (role.name === currentContent) {
+                        option.selected = true;
+                    }
+                });
+
+                target.appendChild(select);
+
+                select.addEventListener('change', function() {
+                    var selectedOption = select.options[select.selectedIndex];
+                    editedSelectElementFunction('role_id', selectedOption.dataset.role_id, editingValueId)
+                    target.innerHTML = selectedOption.value;
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching roles:', error);
+            });
+        }
+
+        function allRolesFunction() {
+            return new Promise((resolve, reject) => {
+                fetch('/get_all_roles')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    resolve(data.roles);
+                })
+                .catch(error => {
+                    reject(error);
+                });
+            });
+        }
+
+        function editedInputElementFunction(updateColumn, editedValue, editedRowId) {
+            var updated_user = {
+                column: updateColumn,
+                new_value: editedValue,
+                row_id: editedRowId
+            };
+            fetch('/update_user_input_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(updated_user)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+            console.log('data', data);
+
+            })
+            .catch(error => {
+                console.error('There was a problem with the fetch operation:', error);
+            });
+        };
+
+        function editedSelectElementFunction(updateColumn, editedValue, editedRowId) {
+            var updated_user = {
+                column: updateColumn,
+                new_value: editedValue,
+                row_id: editedRowId
+            };
+            fetch('/update_user_select_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(updated_user)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+            console.log('data', data);
+
+            })
+            .catch(error => {
+                console.error('There was a problem with the fetch operation:', error);
+            });
+        };
+
+        userMenuButton.addEventListener('click', function() {
+          settingsDropdown.classList.toggle('hidden');
+        });
+
+        const addNewUser = document.getElementById('addNewUser');
+        addNewUser.addEventListener('click', addNewUserFunction);
+
+        function addNewUserFunction() {
+            var newRow = document.createElement('tr');
+            for (var i = 0; i < 3; i++) {
+                var inputCell = document.createElement('td');
+                inputCell.classList.add('styled-td', 'new-input-data');
+                var input = document.createElement('input');
+                input.type = "text";
+                input.classList.add('style-input');
+                inputCell.appendChild(input);
+
+                newRow.appendChild(inputCell);
+            }
+
+            const removeButton = createRemoveButton();
+            newRow.appendChild(removeButton);
+
+            tableBody.appendChild(newRow);
+        };
+
+        function createRemoveButton() {
+            const removeButton = document.createElement('button');
+            svgElement = removeRowIcon();
+            removeButton.appendChild(svgElement);
+            removeButton.classList.add('remove-row-button');
+
+            removeButton.addEventListener('click', () => {
+                const row = removeButton.closest('tr');
+                if (row) {
+                    row.remove();
+                }
+            });
+
+            return removeButton;
+        }
+
+        function removeRowIcon() {
+            var svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svgElement.setAttribute("fill", "#000000");
+            svgElement.setAttribute("height", "12px");
+            svgElement.setAttribute("width", "12px");
+            svgElement.setAttribute("version", "1.1");
+            svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+            svgElement.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+            svgElement.setAttribute("viewBox", "0 0 490 490");
+            svgElement.setAttribute("xml:space", "preserve");
+
+            var crossElement = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            crossElement.setAttribute("points", "456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337");
+
+            svgElement.appendChild(crossElement);
+            return svgElement;
+        }
+
+        const saveNewUser = document.getElementById('saveNewUser');
+        saveNewUser.addEventListener('click', saveNewUserFunction);
+
+
+
+        function saveNewUserFunction() {
+            const newInputCells = document.querySelectorAll('.new-input-data input');
+            const newUsers = Array.from(newInputCells).map(input => input.value);
+            console.log('newUsers', newUsers);
+
+            fetch('/save_new_users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ users: newUsers })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.users_data && data.users_data.length > 0) {
+                    data.users_data.forEach(userData => {
+                        newInputCells.forEach(input => {
+                            const td = input.parentNode;
+                            td.classList.remove('new-input-data');
+                            const removeButtons = document.querySelectorAll('.remove-row-button');
+                            removeButtons.forEach(button => button.parentNode.removeChild(button));
+                        });
+                        const inputCell = Array.from(newInputCells).find(cell => cell.value === userData.name);
+                        if (inputCell) {
+                            const tr = inputCell.closest('tr');
+                            if (tr) {
+                                tr.setAttribute('data-user-id', userData.id);
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('There was a problem with the fetch operation:', error);
+            });
+        };
+
+
     });
 </script>
